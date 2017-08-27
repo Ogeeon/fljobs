@@ -4,6 +4,7 @@
 
 $dbhost = getenv('fljmysql_SERVICE_HOST');
 echo 'dbhost='.$dbhost."/n<br>";
+
 $dbname = 'fljobs';
 $dbuser = 'admin3p6KSFX';
 $dbpass = '8VIZ1trAVlBa';
