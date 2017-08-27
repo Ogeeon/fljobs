@@ -116,7 +116,8 @@
 				$rss .= "<description><![CDATA[".$description."]]></description></item>";
 			}
 		$rss .= "</channel></rss>";
-		$dir = getenv('OPENSHIFT_REPO_DIR');
+		//$dir = getenv('OPENSHIFT_REPO_DIR');
+		$dir = '/opt/app-root/src';
 		$myfile = fopen($dir."/$skillLink.xml", "w") or die("Unable to open file ".$dir."/$skillLink.xml");
 		fwrite($myfile, $rss);
 		fclose($myfile);
