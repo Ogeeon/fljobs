@@ -1,8 +1,7 @@
 <?php
-
 // доступ к базе на OpenShift
 
-$dbhost = getenv('fljmysql_SERVICE_HOST');
+$dbhost = getenv('fljmysql');
 echo 'dbhost='.$dbhost."/n<br>";
 
 $dbname = 'fljobs';
