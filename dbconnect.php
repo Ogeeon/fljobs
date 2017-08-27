@@ -3,6 +3,8 @@
 
 $dbhost = getenv('fljmysql');
 echo 'dbhost='.$dbhost."/n<br>";
+$h1 = getenv('FLJMYSQL_SERVICE_HOST');
+echo 'dbhost_serv='.$h1."<br>";
 
 $dbname = 'fljobs';
 $dbuser = 'admin3p6KSFX';
