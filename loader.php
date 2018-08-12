@@ -4,80 +4,91 @@
 	mb_internal_encoding("utf-8");
 	
 	require_once 'dbconnect.php';
+	require_once 'simple_html_dom.php';
 	
 	function addPrjSkill($prjId, $skillId) {
 		$query = "INSERT INTO prjskills (project_id, skill_id) VALUES ($prjId, $skillId)";
 		SqlQuery($query);
 	}
 	
-	function unjson($input) {
-		$input = str_replace("\r\n", "<br>", $input);
-		$input = str_replace("\n\n", "<br>", $input);
-		$input = str_replace("\n", "<br>", $input);
-		$str = json_decode('{"0": "'.$input.'"}', true);
-		return $str[0];
+	function getSkillID($name, $link) {
+		$query = "SELECT `id` FROM `skills` WHERE `link` LIKE '$link'";
+		$res = SqlQuery($query);
+		if ($res == FALSE) {
+			$insQry = "INSERT INTO skills (`name`, `link`) VALUES ('$name', '$link')";
+			SqlQuery($insQry);
+			return mysql_insert_id();
+		} else {
+			return $res[0]["id"];
+		}
 	}
+	
 	
 	function loadProjectsForSkill($skillLink) {
 		echo "getting $skillLink projects<br/>";
 		$pageCount = 1;
 		while(true) {
- 			$content = file_get_contents("https://www.freelancer.com/jobs/".$skillLink."/".($pageCount++)."/", false, null, -1);
-            //$content = file_get_contents("https://www.freelancer.com/jobs/Java/6/", false, null, -1);
-			
-//			$dir = getenv('OPENSHIFT_PHP_LOG_DIR')."/parses/";
-/*
-			$dir = "d:\\";
- 			if ($myfile = fopen($dir."fl-$skillLink-".($pageCount-1).".txt", "w")) {// or die("Unable to open file!");
-			fwrite($myfile, $content);
- 			fclose($myfile);			
-			}
-*/
-			
-			//$content = file_get_contents("fl-j-1.txt");
-			$matches = array();
-			$projectsArray = "";
-			if (preg_match("/var aaData = \[(.*?)\];/s", $content, $matches) == 1) {
-				$projectsArray = $matches[1];
-			}
-			if ($projectsArray == "") {
-				break;
-			}
-			if (preg_match_all("/\[(\d+),\"(.+?)\",\"(.+?)\",(.+?)\]/", $projectsArray, $prjMatches, PREG_SET_ORDER) > 0) {
-				$count = 0;
-				foreach($prjMatches as $project) {
-					$count++;
-					$id = $project[1];
-					$prjTitle = str_replace("\\", "", unjson($project[2]));
-					$prjDescr = str_replace("\\", "", unjson($project[3]));
-					echo "id=$id<br>";
-					$fltrd = preg_replace("/\\{.*?\\},/", "", $project[4]);
-					$text = '$data=array('.$fltrd.');';
-					eval($text);
-					$prjSkills = $data[1];
-					$prjLink = str_replace("\\", "", $data[18]);
-                    
-					
-					$query = "SELECT count(*) as num FROM projects WHERE id=$id";
-					$res = SqlQuery($query);
-					if ($res[0]["num"] == 1) {
-						continue;
-					}
-					
-					$query = "INSERT INTO projects (id, link, title, description, added) VALUES ($id, '$prjLink', '$prjTitle', '$prjDescr', ".time().")";
-					SqlQuery($query);
-					
-					if (preg_match_all("/(\d+)/", $prjSkills, $skills, PREG_PATTERN_ORDER) > 0) {
-						$skillsArray = $skills[0];
-						foreach ($skillsArray as $skill)
-							addPrjSkill($id, $skill);
-					}
-                    
-  					//if ($count > 2) break;
-				}
-			}
-			unset($content);
-			unset($projectsArray);
+ 			echo "Processing page "."https://www.freelancer.com/jobs/".$skillLink."/".($pageCount)."/"."<br>\n";
+			$html = file_get_html("https://www.freelancer.com/jobs/".$skillLink."/".($pageCount++)."/", false, null, -1);
+
+			$projectsTag = $html->find("#project-list", 0);
+ 			$cnt = 0;
+ 			if (count($projectsTag->children()) == 0) {
+ 				break;
+ 			}
+ 			/*
+ 			foreach($projectsTag->children() as $prj) {
+ 				$heading = $prj->find('div[class=JobSearchCard-primary-heading]', 0);
+ 				$anchor = $heading->find('a', 0);
+ 				$content = file_get_html("https://www.freelancer.com".$anchor->href, false, null, -1);
+ 				$prjID = 0;
+ 				$skills = array();
+ 				$matches = array();
+ 			
+ 				foreach ($content->find('p[class=PageProjectViewLogout-detail-tags]') as $tag) {
+ 					$inner = $tag->innertext;
+ 					if (strpos($inner, 'Project ID') !== false && preg_match("/#(\d+)/", $inner, $matches) == 1) {
+ 						$prjID = $matches[1];
+ 					}
+ 					if (strpos($inner, 'Skills') !== false) {
+ 						$skillsTag = $tag->find('a');
+ 						foreach ($skillsTag as $skill) {
+ 							$href = $skill->href;
+ 							$link = '';
+ 							if (preg_match("/\/jobs\/([\w,-]+)\//", $href, $matches) == 1) {
+ 								$link = $matches[1];
+ 							}
+ 							$name = $skill->innertext;
+ 							$skillID = getSkillID($name, $link);
+ 							array_push($skills, $skillID);
+ 						}
+ 					}
+ 				}
+ 				$prjTitle = $content->find("h1[class=PageProjectViewLogout-header-title]", 0)->innertext;
+ 				echo $prjTitle."\n";
+ 			
+ 				if (count($content->find("p[class=PageProjectViewLogout-detail-paragraph]")) == 0) {
+ 					contunue;
+ 				} else {
+ 					$prjDescr = $content->find("p[class=PageProjectViewLogout-detail-paragraph]", 0)->find('p', 0)->innertext;
+ 					echo $prjDescr;
+ 				}
+ 				
+ 				$query = "SELECT count(*) as num FROM projects WHERE id=$prjID";
+ 				$res = SqlQuery($query);
+ 				if ($res[0]["num"] == 1) {
+ 					continue;
+ 				}
+
+ 				$query = "INSERT INTO projects (id, link, title, description, added) VALUES ($prjID, '".$anchor->href."', '$prjTitle', '$prjDescr', ".time().")";
+ 				SqlQuery($query);
+ 					
+ 				foreach ($skills as $skill)
+ 					addPrjSkill($prjID, $skill);
+ 				
+ 				unset($content);
+ 			}
+ 			*/
 		}
 	}
 
@@ -116,8 +127,7 @@
 				$rss .= "<description><![CDATA[".$description."]]></description></item>";
 			}
 		$rss .= "</channel></rss>";
-		//$dir = getenv('OPENSHIFT_REPO_DIR');
-		$dir = '/opt/app-root/src';
+		$dir = 'd:\\';
 		$myfile = fopen($dir."/$skillLink.xml", "w") or die("Unable to open file ".$dir."/$skillLink.xml");
 		fwrite($myfile, $rss);
 		fclose($myfile);
@@ -129,6 +139,7 @@
 		foreach ($res as $row) {
 			loadProjectsForSkill($row["link"]);
 			saveFeed($row["id"], $row["link"]);
+			echo "Skill link ".$row["link"]." done.<br>\n";
 		}
 	}
 	loadProjects();

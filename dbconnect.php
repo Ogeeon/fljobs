@@ -1,9 +1,7 @@
 <?php
 // доступ к базе на OpenShift
 
-$dbhost = getenv('FLJMYSQL_SERVICE_HOST');
-echo 'dbhost='.$dbhost."/n<br>";
-
+$dbhost = 'localhost';
 $dbname = 'fljobs';
 $dbuser = 'admin3p6KSFX';
 $dbpass = '8VIZ1trAVlBa';
