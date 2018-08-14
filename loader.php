@@ -1,10 +1,10 @@
 <?php
-	set_time_limit(6000);
+	set_time_limit(12000);
 	error_reporting(E_ALL);
 	mb_internal_encoding("utf-8");
 	
-	require_once 'dbconnect.php';
-	require_once 'simple_html_dom.php';
+	require_once ('dbconnect.php');
+	require_once ('simple_html_dom.php');
 	
 	function addPrjSkill($prjId, $skillId) {
 		$query = "INSERT INTO prjskills (project_id, skill_id) VALUES ($prjId, $skillId)";
@@ -12,12 +12,13 @@
 	}
 	
 	function getSkillID($name, $link) {
+	    global $connection;
 		$query = "SELECT `id` FROM `skills` WHERE `link` LIKE '$link'";
 		$res = SqlQuery($query);
 		if ($res == FALSE) {
 			$insQry = "INSERT INTO skills (`name`, `link`) VALUES ('$name', '$link')";
 			SqlQuery($insQry);
-			return mysql_insert_id();
+			return mysqli_insert_id($connection);
 		} else {
 			return $res[0]["id"];
 		}
@@ -25,22 +26,30 @@
 	
 	
 	function loadProjectsForSkill($skillLink) {
-		echo "getting $skillLink projects<br/>";
+		echo "getting $skillLink projects<br>\n";
 		$pageCount = 1;
 		while(true) {
  			echo "Processing page "."https://www.freelancer.com/jobs/".$skillLink."/".($pageCount)."/"."<br>\n";
 			$html = file_get_html("https://www.freelancer.com/jobs/".$skillLink."/".($pageCount++)."/", false, null, -1);
 
 			$projectsTag = $html->find("#project-list", 0);
- 			$cnt = 0;
  			if (count($projectsTag->children()) == 0) {
  				break;
  			}
- 			/*
+ 			//if ($pageCount > 2) {break;}
  			foreach($projectsTag->children() as $prj) {
  				$heading = $prj->find('div[class=JobSearchCard-primary-heading]', 0);
  				$anchor = $heading->find('a', 0);
+				
+				$query = "SELECT count(*) as num FROM projects WHERE `link` LIKE '$anchor->href'";
+ 				$res = SqlQuery($query);
+ 				if ($res[0]["num"] == 1) {
+ 					continue;
+ 				}
+				
  				$content = file_get_html("https://www.freelancer.com".$anchor->href, false, null, -1);
+ 				echo "Processing href ".$anchor->href."<br>\n";
+ 				
  				$prjID = 0;
  				$skills = array();
  				$matches = array();
@@ -65,19 +74,11 @@
  					}
  				}
  				$prjTitle = $content->find("h1[class=PageProjectViewLogout-header-title]", 0)->innertext;
- 				echo $prjTitle."\n";
  			
  				if (count($content->find("p[class=PageProjectViewLogout-detail-paragraph]")) == 0) {
- 					contunue;
+ 					continue;
  				} else {
  					$prjDescr = $content->find("p[class=PageProjectViewLogout-detail-paragraph]", 0)->find('p', 0)->innertext;
- 					echo $prjDescr;
- 				}
- 				
- 				$query = "SELECT count(*) as num FROM projects WHERE id=$prjID";
- 				$res = SqlQuery($query);
- 				if ($res[0]["num"] == 1) {
- 					continue;
  				}
 
  				$query = "INSERT INTO projects (id, link, title, description, added) VALUES ($prjID, '".$anchor->href."', '$prjTitle', '$prjDescr', ".time().")";
@@ -88,7 +89,6 @@
  				
  				unset($content);
  			}
- 			*/
 		}
 	}
 
@@ -100,10 +100,10 @@
 				$filters[] = $row["text"];
 			}
 		}
-		$rss = "<?xml version='1.0' encoding='UTF-8'?><rss version='2.0' xmlns:content='http://purl.org/rss/1.0/modules/content/' xmlns:wfw='http://wellformedweb.org/CommentAPI/' xmlns:dc='http://purl.org/dc/elements/1.1/' xmlns:atom='http://www.w3.org/2005/Atom'><channel><title>$skillLink projects</title><link>https://freelancer.com/</link><atom:link href='http://fljobs-ogeeon.rhcloud.com/Translation.xml' rel='self' type='application/rss+xml' /><description>$skillLink Projects</description><language>en</language>";
-		$rss .= "<lastBuildDate>".strftime("%a, %d %b %Y %T %Z", time())."</lastBuildDate>";
+		$rss = "<?xml version='1.0' encoding='UTF-8'?><rss version='2.0' xmlns:content='http://purl.org/rss/1.0/modules/content/' xmlns:wfw='http://wellformedweb.org/CommentAPI/' xmlns:dc='http://purl.org/dc/elements/1.1/' xmlns:atom='http://www.w3.org/2005/Atom'><channel><title>$skillLink projects</title><link>https://freelancer.com/</link><atom:link href='http://fljobs.ogionubu.fvds.ru/feeds/$skillLink.xml' rel='self' type='application/rss+xml' /><description>$skillLink Projects</description><language>en</language>";
+		$rss .= "<lastBuildDate>".strftime("%a, %d %b %Y %T %z", time())."</lastBuildDate>";
 		$query = "select projects.* from projects inner join prjskills on (projects.id = prjskills.project_id)
-					inner join skills on (prjskills.skill_id = skills.id) where skills.link like '$skillLink' order by projects.id desc limit 0,100";
+					inner join skills on (prjskills.skill_id = skills.id) where skills.id=$skillId order by projects.id desc limit 0,100";
 		if ($res = SqlQuery($query))
 			foreach ($res as $row) {
 				$title = $row["title"];
@@ -123,11 +123,11 @@
 				$rss .= "<item><title><![CDATA[".$title."]]></title>";
 				$rss .= "<guid isPermaLink='true'>https://www.freelancer.com".$row["link"]."</guid>";
 				$rss .= "<link>https://www.freelancer.com".$row["link"]."</link>";
-				$rss .= "<pubDate>".strftime("%a, %d %b %Y %T %Z", $row["added"])."</pubDate>";
+				$rss .= "<pubDate>".strftime("%a, %d %b %Y %T %z", $row["added"])."</pubDate>";
 				$rss .= "<description><![CDATA[".$description."]]></description></item>";
 			}
 		$rss .= "</channel></rss>";
-		$dir = 'd:\\';
+		$dir = '/var/www/www-root/data/www/fljobs.ogionubu.fvds.ru/feeds';
 		$myfile = fopen($dir."/$skillLink.xml", "w") or die("Unable to open file ".$dir."/$skillLink.xml");
 		fwrite($myfile, $rss);
 		fclose($myfile);
@@ -143,4 +143,5 @@
 		}
 	}
 	loadProjects();
+	
 ?>

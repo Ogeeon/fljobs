@@ -1,38 +1,27 @@
 <?php
-// доступ к базе на OpenShift
 
 $dbhost = 'localhost';
 $dbname = 'fljobs';
-$dbuser = 'admin3p6KSFX';
+$dbuser = 'admin3p6ksfx';
 $dbpass = '8VIZ1trAVlBa';
-
-// доступ к базе локально 
-/*
-$dbhost = 'localhost';
-$dbname = 'fl_projects';
-$dbuser = 'root';
-$dbpass = 'root';
-*/
 
 function SqlQuery($query)
 {
+    global $connection;
 	$res = array();
 
-	if ($result = mysql_query($query))
+	if ($result = mysqli_query($connection, $query))
 	{
 		if ($result === TRUE) return FALSE; // для не-select'ов возвращаем FALSE, потому что нет результата
-		while ($row = mysql_fetch_assoc($result)) array_push($res, $row);
-		mysql_free_result($result);
+		while ($row = mysqli_fetch_assoc($result))
+		    array_push($res, $row);
+		mysqli_free_result($result);
 	}
 	else return FALSE;
 
 	return count($res) > 0 ? $res : FALSE;
 }
+$connection = mysqli_connect($dbhost, $dbuser, $dbpass, $dbname);
 
-mysql_connect($dbhost, $dbuser, $dbpass) or die('Error1');
-mysql_select_db($dbname) or die('Error2');
-
-mysql_query("SET NAMES utf8");
-mysql_query("SET CHARACTER SET utf8");
 
 ?>

@@ -4,4 +4,5 @@
 	$monthAgo = strtotime("-1 month");
 	$query = "DELETE FROM `projects` where `added` < ".$monthAgo;
 	SqlQuery($query);
+	echo "Clear";
 ?>
